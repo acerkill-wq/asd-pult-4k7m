@@ -203,6 +203,7 @@ h2{font-size:17px;font-weight:600;margin:0;text-wrap:balance}
         <option value="behind">Отстают</option>
       </select>
       <select id="f-cur" aria-label="Куратор"></select>
+      <button class="chip" id="f-st" hidden></button>
       <input id="f-q" type="search" placeholder="Найти по имени">
       <span class="done" id="donecnt"></span>
     </div>
@@ -241,7 +242,7 @@ var CURATORS=['Куратор 1','Куратор 2','Куратор 3'];
 if(D&&D.curators)CURATORS=D.curators;
 var FN=['Анна','Мария','Ольга','Елена','Наталья','Светлана','Ирина','Татьяна','Юлия','Екатерина','Дарья','Галина','Алексей','Дмитрий','Сергей','Андрей'];
 var SN=['Соколов','Белов','Орлов','Климов','Громов','Зорин','Лаптев','Рябов','Тихонов','Фролов','Жуков','Ершов','Савин','Котов','Дроздов','Маслов'];
-var RESULTS=['Дозвонился, вернётся к урокам','Не ответил','Вернулся в учёбу','Просит паузу','Отказался от обучения','Передать в отдел продаж'];
+var RESULTS=['Дозвонился, вернётся к урокам','Не ответил','Вернулся в учёбу','Просит паузу','Отказался от обучения','Передать в отдел продаж','Не ученик: сотрудник или тест'];
 
 var S=[],n=0;
 if(D){S=D.students;S.forEach(function(x){x.touches=x.touches||[]})}
@@ -268,12 +269,13 @@ if(D){S=D.students;S.forEach(function(x){x.touches=x.touches||[]})}
 var LS='pult-local-v1';
 function isoNow(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
 function tdate(t){return t.at?t.at.slice(8,10)+'.'+t.at.slice(5,7):dstr(t.d)}
-function persist(){if(!D||D.cloud)return;var o={};S.forEach(function(s){if(s.touches.length||s.cur||s.toSales)o[s.id]={t:s.touches,cur:s.cur,toSales:!!s.toSales}});try{localStorage.setItem(LS,JSON.stringify(o))}catch(e){}}
-if(D&&!D.cloud){var saved={};try{saved=JSON.parse(localStorage.getItem(LS))||{}}catch(e){}S.forEach(function(s){var o=saved[s.id];if(!o)return;s.cur=o.cur||'';s.toSales=!!o.toSales;s.touches=(o.t||[]).map(function(t){t.d=Math.max(0,Math.round((new Date(isoNow())-new Date(t.at))/864e5));return t})})}
-var state={role:'dir',view:'potoki',fp:'',fs:'',fc:'',q:'',page:25,open:null,kind:'Звонок',stu:null};
+function persist(){if(!D||D.cloud)return;var o={};S.forEach(function(s){if(s.touches.length||s.cur||s.toSales||s.excluded)o[s.id]={t:s.touches,cur:s.cur,toSales:!!s.toSales,ex:!!s.excluded}});try{localStorage.setItem(LS,JSON.stringify(o))}catch(e){}}
+if(D&&!D.cloud){var saved={};try{saved=JSON.parse(localStorage.getItem(LS))||{}}catch(e){}S.forEach(function(s){var o=saved[s.id];if(!o)return;s.cur=o.cur||'';s.toSales=!!o.toSales;s.excluded=!!o.ex;s.touches=(o.t||[]).map(function(t){t.d=Math.max(0,Math.round((new Date(isoNow())-new Date(t.at))/864e5));return t})})}
+var state={role:'dir',view:'potoki',fp:'',fs:'',fc:'',fst:'',q:'',page:25,open:null,kind:'Звонок',stu:null};
 var $=function(id){return document.getElementById(id)};
 function need(s){return s.status!='ok'}
 function visible(s){
+  if(s.excluded)return false;
   if(D&&D.cloud)return true;
   if(state.role=='cur')return s.cur=='Куратор 1';
   if(state.role=='sales')return s.toSales||(s.p=='gs'&&s.accessDays<=30&&s.status!='ok');
@@ -297,10 +299,10 @@ function renderProds(){
     h+='<div class="card prod"><div class="prod-head"><h2>'+esc(p.name)+'</h2><small>'+pl.length+' '+plural(pl.length,'ученик','ученика','учеников')+', разбивка: '+p.by+(p.graduates?', выпускников '+p.graduates:'')+'</small></div>';
     p.streams.forEach(function(st){
       var l=pl.filter(function(s){return s.stream==st[0]});if(!l.length)return;var c=count(l);
-      h+='<div class="stream"><div class="nm">'+esc(st[0])+'<small>'+l.length+' чел.</small></div><div class="bar" role="img" aria-label="Доли статусов">';
+      h+='<div class="stream"><div class="nm"><button class="name" data-p="'+p.id+'" data-st="'+esc(st[0])+'" data-s="">'+esc(st[0])+'</button><small>'+l.length+' чел.</small></div><div class="bar" role="img" aria-label="Доли статусов">';
       ORDER.forEach(function(k){if(c[k])h+='<span style="width:'+(c[k]/l.length*100)+'%;background:var(--'+k+')" title="'+ST[k][1]+': '+c[k]+'"></span>'});
       h+='</div><div class="chips">';
-      ORDER.forEach(function(k){h+='<button class="chip" data-p="'+p.id+'" data-s="'+(k=='ok'?'':k)+'" '+(k=='ok'?'disabled':'')+'><span class="dot d-'+k+'"></span>'+c[k]+'</button>'});
+      ORDER.forEach(function(k){h+='<button class="chip" data-p="'+p.id+'" data-st="'+esc(st[0])+'" data-s="'+(k=='ok'?'':k)+'" '+(k=='ok'?'disabled':'')+'><span class="dot d-'+k+'"></span>'+c[k]+'</button>'});
       h+='</div></div>';
     });
     h+='</div>';
@@ -308,7 +310,7 @@ function renderProds(){
   $('prods').innerHTML=h||'<div class="card empty">Для этой роли учеников пока нет</div>';
 }
 function listData(){
-  return S.filter(function(s){return visible(s)&&(need(s)||s.toSales)&&(!state.fp||s.p==state.fp)&&(!state.fs||s.status==state.fs)&&(!state.fc||(state.fc=='-'?!s.cur:s.cur==state.fc))&&(!state.q||s.name.toLowerCase().indexOf(state.q)>=0)})
+  return S.filter(function(s){return visible(s)&&(need(s)||s.toSales||state.fst)&&(!state.fst||s.stream==state.fst)&&(!state.fp||s.p==state.fp)&&(!state.fs||s.status==state.fs)&&(!state.fc||(state.fc=='-'?!s.cur:s.cur==state.fc))&&(!state.q||s.name.toLowerCase().indexOf(state.q)>=0)})
    .sort(function(a,b){var ta=a.touches.some(function(x){return x.d==0})?1:0,tb=b.touches.some(function(x){return x.d==0})?1:0;return ta-tb||prio(a)-prio(b)||(b.visit||0)-(a.visit||0)});
 }
 function rowHtml(s){
@@ -338,6 +340,7 @@ function renderList(){
   $('more').textContent='Показать ещё, осталось '+(l.length-state.page);
   var today=0;S.forEach(function(s){if(visible(s)&&s.touches.some(function(x){return x.d==0}))today++});
   $('donecnt').textContent='В списке '+l.length+', сегодня отработано '+today;
+  $('f-st').hidden=!state.fst;$('f-st').textContent='Поток: '+state.fst+' ✕';
   $('tabcnt').textContent=S.filter(function(s){return visible(s)&&need(s)}).length;
 }
 function renderStudent(){
@@ -352,8 +355,8 @@ function renderStudent(){
   +'<div class="stu"><div class="card col">'
   +'<div class="stu-head"><h2>'+esc(s.name)+'</h2><span class="pill p-'+s.status+'">'+ST[s.status][0]+'</span></div>'
   +(s.reason?'<p class="hint">'+esc(s.reason)+'</p>':'')
-  +'<dl class="kv"><div><dt>Продукт</dt><dd>'+esc(p.name)+'</dd></div><div><dt>'+(p.by=='тариф'?'Тариф':'Поток')+'</dt><dd>'+esc(s.stream)+'</dd></div><div><dt>Куратор</dt><dd>'+esc(s.cur||'не назначен')+'</dd></div>'
-  +'<div><dt>Телефон</dt><dd>'+esc(s.phone||'нет')+'</dd></div>'+(D?'<div><dt>Карточка</dt><dd><a href="https://academia-bti.ru/user/control/user/update/id/'+esc(s.uid)+'" target="_blank" rel="noopener">открыть в GetCourse</a></dd></div><div><dt>Начал</dt><dd>'+(s.start?s.start.slice(8,10)+'.'+s.start.slice(5,7)+'.'+s.start.slice(0,4):'нет данных')+'</dd></div>':'<div><dt>Почта</dt><dd>'+s.mail+'</dd></div><div><dt>Доступ, осталось</dt><dd>'+s.accessDays+' дн.</dd></div>')+'</dl>'
+  +'<dl class="kv"><div><dt>Продукт</dt><dd>'+esc(p.name)+'</dd></div><div><dt>'+(p.by=='тариф'?'Тариф':p.by=='срок доступа'?'Срок доступа':'Поток')+'</dt><dd>'+esc(s.stream)+'</dd></div><div><dt>Куратор</dt><dd>'+esc(s.cur||'не назначен')+'</dd></div>'
+  +'<div><dt>Телефон</dt><dd>'+esc(s.phone||'нет')+'</dd></div>'+(D?'<div><dt>Карточка</dt><dd><a href="https://academia-bti.ru/user/control/user/update/id/'+esc(s.uid)+'" target="_blank" rel="noopener">открыть в GetCourse</a></dd></div><div><dt>'+(s.accessEnd?'Доступ до':'Начал')+'</dt><dd>'+((s.accessEnd||s.start)?(s.accessEnd||s.start).slice(8,10)+'.'+(s.accessEnd||s.start).slice(5,7)+'.'+(s.accessEnd||s.start).slice(0,4):'нет данных')+'</dd></div>':'<div><dt>Почта</dt><dd>'+s.mail+'</dd></div><div><dt>Доступ, осталось</dt><dd>'+s.accessDays+' дн.</dd></div>')+'</dl>'
   +'<div class="block"><h3>Прогресс: '+(s.mod?(p.id=='gs'&&D?'открыто тем года '+s.mod+' из '+p.mods:p.unit+' '+s.mod+' из '+p.mods):'уроки не открывал')+(D&&s.lessonsTotal?', уроков '+s.lessons+' из '+s.lessonsTotal:'')+(s.hw?', есть несданное задание':'')+'</h3><div class="mods">'+mods+'</div>'+(s.modTitle?'<p class="hint">'+esc(s.modTitle)+'</p>':'')+'</div>'
   +(D?'<div class="block"><h3>Последний заход на сайт: '+(s.visit==null?'нет данных':dstr(s.visit)+' ('+s.visit+' дн. назад)')+'</h3></div>':'<div class="block"><h3>Заходы на сайт за 30 дней'+(s.visit==null?': не заходил':', последний '+dstr(s.visit))+'</h3><div class="days">'+days+'</div></div>')
   +'</div><div class="card col"><div class="block"><h3>Отметки</h3>'+(hist?'<ul class="hist">'+hist+'</ul>':'<p class="hint">Отметок пока нет.</p>')+'</div>'
@@ -375,13 +378,14 @@ function show(v){
   if(location.hash!='#'+v){try{history.replaceState(null,'','#'+v)}catch(e){location.hash=v}}
 }
 function all(){renderTiles();renderProds();renderList();renderStudent();hints()}
-function goList(p,s){state.fp=p||'';state.fs=s||'';state.page=25;$('f-prod').value=state.fp;$('f-status').value=state.fs;renderList();show('spisok')}
+function goList(p,s,st){state.fst=st||'';state.fp=p||'';state.fs=s||'';state.page=25;$('f-prod').value=state.fp;$('f-status').value=state.fs;renderList();show('spisok')}
 
 document.addEventListener('click',function(e){
   var t=e.target.closest('button');if(!t)return;var d=t.dataset;
   if(d.view){show(d.view);return}
   if('go' in d){goList('',d.go);return}
-  if('p' in d&&'s' in d){goList(d.p,d.s);return}
+  if('p' in d&&'s' in d){goList(d.p,d.s,d.st);return}
+  if(t.id=='f-st'){state.fst='';state.page=25;renderList();return}
   if(d.stu){state.stu=d.stu;state.open=null;renderStudent();show('uchenik');window.scrollTo(0,0);return}
   if(d.back){show('spisok');return}
   if(d.mark){state.open=state.open==d.mark?null:d.mark;state.kind='Звонок';renderList();renderStudent();return}
@@ -394,6 +398,7 @@ document.addEventListener('click',function(e){
     var who=(D&&D.cloud)?window.PULT_ME.name:{dir:'Директор',edu:'Отдел обучения',cur:'Куратор 1',sales:'Отдел продаж'}[state.role];
     s.touches.push({d:0,at:isoNow(),who:who,kind:state.kind,res:res,note:note});
     if(res=='Передать в отдел продаж')s.toSales=true;
+    if(res=='Не ученик: сотрудник или тест')S.forEach(function(x){if((x.uid||x.id)==(s.uid||s.id))x.excluded=true});
     if(D&&D.cloud)window.PULT_API.addTouch(s.id,state.kind,res,note).then(function(r){if(r.error){s.touches.pop();all();warn('Отметка не сохранилась: '+r.error.message)}});
     state.open=null;persist();all();return
   }
@@ -431,7 +436,7 @@ function cloudBoot(){
       var staff=await rows('staff','id,name,role,user_id');
       var u=(await sb.auth.getUser()).data.user,me=staff.filter(function(x){return x.user_id==u.id})[0];
       var meta=await sb.from('meta').select('value').eq('key','snapshot').single();if(meta.error)throw meta.error;
-      var enr=await rows('enrollments','*',function(q){return q.eq('active',true).order('id')});
+      var enr=await rows('enrollments','*',function(q){return q.eq('active',true).eq('excluded',false).order('id')});
       var stu=await rows('students','uid,name,phone,city',function(q){return q.order('uid')});
       var tch=await rows('touches','enrollment_id,at,staff_id,kind,result,note',function(q){return q.order('at',{ascending:false})});
     }catch(e){say('Не удалось загрузить данные: '+(e.message||e),true);return}
@@ -440,7 +445,7 @@ function cloudBoot(){
     tch.forEach(function(t){var day=new Date(t.at);day.setHours(0,0,0,0);var loc=new Date(t.at);var at=loc.getFullYear()+'-'+('0'+(loc.getMonth()+1)).slice(-2)+'-'+('0'+loc.getDate()).slice(-2);(tm[t.enrollment_id]=tm[t.enrollment_id]||[]).push({at:at,d:Math.max(0,Math.round((d0-day)/864e5)),who:sn[t.staff_id]||'',kind:t.kind,res:t.result,note:t.note||''})});
     var m=meta.data.value;
     window.PULT_DATA={cloud:true,snapshot:m.snapshot,today:m.today,products:m.products,curators:staff.filter(function(x){return x.role=='cur'}).map(function(x){return x.name}),
-      students:enr.map(function(e){var p=sm[e.uid]||{};return {id:e.id,uid:e.uid,name:p.name||'',phone:p.phone||'',city:p.city||'',p:e.product,stream:e.stream,start:e.start_date,status:e.status,reason:e.reason||'',visit:e.visit_days,lessons:e.lessons,lessonsTotal:e.lessons_total,mod:e.mod||0,modTitle:e.mod_title||'',cur:sn[e.curator]||'',toSales:e.to_sales,touches:tm[e.id]||[],accessDays:null}})};
+      students:enr.map(function(e){var p=sm[e.uid]||{};return {id:e.id,uid:e.uid,name:p.name||'',phone:p.phone||'',city:p.city||'',p:e.product,stream:e.stream,start:e.start_date,status:e.status,reason:e.reason||'',visit:e.visit_days,lessons:e.lessons,lessonsTotal:e.lessons_total,mod:e.mod||0,modTitle:e.mod_title||'',cur:sn[e.curator]||'',toSales:e.to_sales,touches:tm[e.id]||[],accessEnd:e.access_end,accessDays:e.access_end?Math.round((new Date(e.access_end)-d0)/864e5):null}})};
     window.PULT_ME={role:me.role,name:me.name};
     window.PULT_API={addTouch:function(id,kind,res,note){return sb.rpc('add_touch',{p_enrollment:id,p_kind:kind,p_result:res,p_note:note||''})},
       assignCurator:function(id,name){var st=staff.filter(function(x){return x.role=='cur'&&x.name==name})[0];return sb.rpc('assign_curator',{p_enrollment:id,p_staff:st?st.id:null})},
